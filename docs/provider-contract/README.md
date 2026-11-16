@@ -1,0 +1,1 @@
+Screenshots for [securo-finance/securo#1461](https://github.com/securo-finance/securo/issues/1461): this plugin at 0.1 (records written through Securo's API) and at 0.2 (records synced as a connected bank). Every name, id and amount in them is made up.
