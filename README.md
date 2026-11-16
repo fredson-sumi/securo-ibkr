@@ -1,14 +1,16 @@
 # Interactive Brokers for Securo
 
-A [Securo](https://github.com/securo-finance/securo) plugin that imports your Interactive Brokers account through the **Flex Web Service**. It is read-only: it can't place trades or move money.
+A [Securo](https://github.com/securo-finance/securo) plugin that syncs your Interactive Brokers account through the **Flex Web Service**. It is read-only: it can't place trades or move money.
+
+It works like the banks Securo connects to itself: you connect it from **+ Connect Bank**, it shows under **Bank Connections**, and its records carry the synced badge. Securo writes them, matching each one by its IBKR id, so a sync never duplicates anything.
 
 Each sync brings in:
 
 - **Cash**: one investment account per currency, with IBKR's ending cash as the balance
 - **Cash activity**: deposits, withdrawals, dividends, interest, fees and taxes from the Statement of Funds (trades are left out of spending)
 - **Open positions**: one asset per position, valued at IBKR's position value on the statement date
-- **Trades**: the buys and sells behind each position, in the asset's transaction history, so its units always equal IBKR's position
-- **Closed positions**: instruments you sold, including ones bought and sold within the statement, keep their trades (and realized gain) and are archived
+- **Trades**: the buys and sells behind each position, in the asset's transaction history. What you held before the first statement becomes one opening buy, priced at IBKR's cost basis.
+- **Closed positions**: instruments bought and sold within a statement keep their trades (and realized gain); positions no longer held are archived
 
 Short positions (such as written options) get an asset and a value, but no trade history: Securo's ledger doesn't hold short positions.
 
@@ -37,16 +39,21 @@ The first sync covers the last 365 days. Later syncs pick up from the last state
 
 Your Securo instance needs plugins with code turned on (`PLUGINS_ENABLED=true` and the `plugins` Compose profile). See [Securo's plugin docs](https://docs.usesecuro.com/docs/features/plugins).
 
-1. As the workspace owner, install **Interactive Brokers** from the plugin catalog.
-2. Add a connection and enter the **Flex Web Service token** and the **Activity Flex Query ID**.
-3. Click **Sync now**. A large statement can take IBKR a few minutes to generate. If it isn't ready, the sync finishes and the next one collects it.
+This version needs a Securo that syncs plugins as banks ([securo-finance/securo#1461](https://github.com/securo-finance/securo/issues/1461)).
 
-The plugin creates ordinary records in your workspace: one investment account per currency (named "<account> Cash (USD)") and one asset per instrument. You can rename them; don't delete the IBKR entries in an asset's history, or the next sync adds them back. Each sync sets the account's opening balance so its balance equals IBKR's ending cash.
+1. As the workspace owner, install **Interactive Brokers** from the plugin catalog.
+2. On **Accounts**, click **+ Connect Bank**, pick **IBKR Flex Query** under "From your plugins", and enter the **Flex Web Service token** and the **Activity Flex Query ID**.
+3. The first sync starts on its own. A large statement can take IBKR a few minutes to generate; if it isn't ready, the next sync collects it. **Sync now** under Bank Connections asks again.
+
+If the token stops working, use **Reconnect** under Bank Connections and enter a new one. Disconnecting removes the accounts and archives the assets, as for any connected bank.
+
+**Coming from 0.1:** 0.1 wrote ordinary records through Securo's API. After the update, the connection syncs into new, synced records, starting again with the last 365 days; the 0.1 records stay as they were, so delete them once you're happy with the synced ones.
 
 ## What it can reach
 
 - `ndcdyn.interactivebrokers.com` and `gdcdyn.interactivebrokers.com`, to request and download your statement
-- Your Securo workspace's accounts, transactions and assets, through a token that only covers those
+
+It has no access to your Securo data: it hands the statement's records back, and Securo writes them.
 
 Your token is stored encrypted by Securo and only passed to this plugin.
 
@@ -56,7 +63,7 @@ Your token is stored encrypted by Securo and only passed to this plugin.
 uv run --python 3.14 --group dev pytest -q
 ```
 
-The plugin itself uses only the Python standard library. [DESIGN.md](DESIGN.md) explains how it maps a statement onto Securo's API and why.
+The plugin itself uses only the Python standard library. [DESIGN.md](DESIGN.md) explains how it maps a statement onto Securo's records and why.
 
 ## License
 
