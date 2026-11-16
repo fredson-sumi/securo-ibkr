@@ -56,7 +56,7 @@ Your token is stored encrypted by Securo and only passed to this plugin.
 uv run --python 3.14 --group dev pytest -q
 ```
 
-The plugin itself uses only the Python standard library.
+The plugin itself uses only the Python standard library. [DESIGN.md](DESIGN.md) explains how it maps a statement onto Securo's API and why.
 
 ## License
 
