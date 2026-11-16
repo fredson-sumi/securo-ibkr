@@ -6,3 +6,5 @@ site/
 # Real Flex statements must never be committed (D3).
 *.real.xml
 local/
+# Dev-only dependency lock (pytest); the plugin ships no lockfile (D7).
+uv.lock
