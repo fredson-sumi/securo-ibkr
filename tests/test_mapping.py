@@ -5,7 +5,7 @@ from datetime import date
 from decimal import Decimal
 
 import pytest
-from fake_report import report_xml
+from tests.fake_report import report_xml
 
 from securo_ibkr.flex import ParsedReport, parse_report
 from securo_ibkr.mapping import (

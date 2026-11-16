@@ -4,7 +4,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 import pytest
-from fake_report import report_xml
+from tests.fake_report import report_xml
 
 from securo_ibkr.errors import FlexPending, FlexTransient, NeedsAuth
 from securo_ibkr.flex import (
