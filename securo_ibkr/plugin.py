@@ -57,6 +57,17 @@ def report_window(state: dict[str, Any], today: date) -> tuple[date, date] | Non
     return start, end
 
 
+def _from_older_version(state: dict[str, Any]) -> dict[str, Any]:
+    """Start over from a 0.1.x state: those records were written through the API, not synced.
+
+    The synced records start empty, so the first statement covers the whole
+    year again and opens what was held before it.
+    """
+    if "openings" in state or "last_report_end" not in state:
+        return state
+    return {}
+
+
 class IbkrFlex:
     def __init__(
         self,
@@ -71,7 +82,7 @@ class IbkrFlex:
 
     def sync(self, params: dict[str, Any], context: Any) -> dict[str, Any]:
         token, query_id = _credentials(context)
-        state = dict(params.get("state") or {})
+        state = _from_older_version(dict(params.get("state") or {}))
         pending = flex_fetch.Pending.from_state(state.get("flex"))
         window = report_window(state, self._today())
         if window is None and pending is None:

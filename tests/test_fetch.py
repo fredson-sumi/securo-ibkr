@@ -208,8 +208,9 @@ def test_while_ibkr_generates_there_is_no_data():
 def test_sync_does_nothing_when_yesterday_is_already_imported():
     http = FakeIbkr()
     plugin = IbkrFlex(http=http, today=lambda: date(2026, 11, 16))
-    result = plugin.sync({"state": {"last_report_end": "2026-11-15"}}, _context())
-    assert result == {"state": {"last_report_end": "2026-11-15"}, "data": None}
+    state = {"last_report_end": "2026-11-15", "openings": {}}
+    result = plugin.sync({"state": state}, _context())
+    assert result == {"state": state, "data": None}
     assert http.calls == []
 
 
@@ -217,3 +218,23 @@ def test_sync_does_nothing_when_yesterday_is_already_imported():
 def test_sync_refuses_bad_inputs_with_needs_auth(token, query_id):
     with pytest.raises(NeedsAuth):
         IbkrFlex(http=FakeIbkr()).sync({"state": {}}, _context(token, query_id))
+
+
+def test_a_state_from_0_1_starts_over_with_a_full_year():
+    old = {"last_report_end": "2026-11-10", "accounts": {"U1234567:USD": {"id": "x"}}, "assets": {}, "last_sync": {}}
+    clock = FakeClock()
+    plugin = IbkrFlex(http=FakeIbkr(send_ok(), READY), today=lambda: date(2026, 11, 16),
+                      fetch_kwargs={"sleep": clock.sleep, "clock": clock})
+    result = plugin.sync({"state": old}, _context())
+    assert set(result["state"]) == {"openings", "last_report_end"}
+    assert result["state"]["openings"]  # the year's first statement opened what was held
+
+
+def test_a_state_from_0_2_continues():
+    state = {"last_report_end": "2026-11-10", "openings": {}}
+    clock = FakeClock()
+    plugin = IbkrFlex(http=FakeIbkr(send_ok(), READY), today=lambda: date(2026, 11, 16),
+                      fetch_kwargs={"sleep": clock.sleep, "clock": clock})
+    result = plugin.sync({"state": state}, _context())
+    assert result["state"]["openings"] == {}
+
