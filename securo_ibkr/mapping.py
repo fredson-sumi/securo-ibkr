@@ -69,11 +69,6 @@ class Trade:
     #: A sell that opens (or adds to) a short position.
     opens_short: bool = False
 
-    @property
-    def notes(self) -> str:
-        """The ledger note that identifies this execution (F7)."""
-        return f"IBKR trade {self.external_id.removeprefix('trade:')}"
-
 
 @dataclass
 class Holding:
@@ -97,7 +92,7 @@ class Holding:
 
     @property
     def units(self) -> Decimal:
-        """Units the ledger should hold: contracts x multiplier, 0 when closed."""
+        """Units held at the end of the statement: contracts x multiplier, 0 when closed."""
         if self.position is None or self.position.quantity is None:
             return Decimal("0")
         return self.position.quantity * self.multiplier

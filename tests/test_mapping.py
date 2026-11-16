@@ -140,7 +140,6 @@ def test_trades_keyed_by_position_from_statement_of_funds():
         Decimal("1"),
     )
     assert trade.date == date(2026, 8, 12)
-    assert trade.notes == "IBKR trade TR-1"
 
 
 # --- added: matching rules ---------------------------------------------------

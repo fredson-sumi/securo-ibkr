@@ -10,7 +10,6 @@ from securo_ibkr import fetch
 from securo_ibkr.errors import FlexTransient, NeedsAuth
 from securo_ibkr.plugin import IbkrFlex, report_window
 from tests.fake_report import report_xml
-from tests.fake_securo import BASE, TOKEN as API_TOKEN, FakeSecuro
 
 TOKEN = "fake-token-123456"
 NOW = datetime(2026, 11, 16, 12, 0, tzinfo=timezone.utc)
@@ -168,9 +167,7 @@ def test_transport_failure_on_send_is_transient_without_details():
 
 
 def _context(token: str = TOKEN, query_id: str = "123"):
-    return SimpleNamespace(
-        secrets={"token": token}, config={"query_id": query_id}, securo={"api_url": BASE, "token": API_TOKEN}
-    )
+    return SimpleNamespace(secrets={"token": token}, config={"query_id": query_id}, securo={})
 
 
 def test_window_is_a_year_first_then_continues_from_the_last_import():
@@ -189,26 +186,30 @@ def test_sync_keeps_pending_request_in_state_and_finishes_next_time():
     state = first.sync({"state": {}}, _context())["state"]
     assert state["flex"]["reference"] == "REF1"
 
-    securo = FakeSecuro()
-    second = IbkrFlex(http=FakeIbkr(READY), today=lambda: date(2026, 11, 16), fetch_kwargs=kwargs, api_transport=securo)
-    state = second.sync({"state": state}, _context())["state"]
+    second = IbkrFlex(http=FakeIbkr(READY), today=lambda: date(2026, 11, 16), fetch_kwargs=kwargs)
+    result = second.sync({"state": state}, _context())
+    state, data = result["state"], result["data"]
     assert "flex" not in state
     assert state["last_report_end"] == "2026-11-15"
-    assert state["last_sync"]["transactions_created"] == 3
-    assert len(securo.accounts) == 2 and len(securo.assets) == 2
+    assert data["contract"] == 1
+    assert [a["external_id"] for a in data["accounts"]] == ["U1234567:EUR", "U1234567:USD"]
+    assert len(data["holdings"]) == 2
 
-    # Out of time mid-write: the window isn't marked done, so the next sync redoes it.
-    ticks = iter([0.0, 0.0] + [99.0] * 50)
-    third = IbkrFlex(http=FakeIbkr(send_ok(), READY), today=lambda: date(2026, 11, 17), fetch_kwargs=kwargs,
-                     api_transport=securo, clock=lambda: next(ticks))
-    state = third.sync({"state": state}, _context())["state"]
-    assert state["last_report_end"] == "2026-11-15" and "incomplete" in state["last_sync"]
+
+def test_while_ibkr_generates_there_is_no_data():
+    polls = fetch.POLL_BUDGET // fetch.POLL_INTERVAL
+    clock = FakeClock()
+    plugin = IbkrFlex(http=FakeIbkr(send_ok(), *[GENERATING] * polls), today=lambda: date(2026, 11, 16),
+                      fetch_kwargs={"sleep": clock.sleep, "clock": clock})
+    result = plugin.sync({"state": {}}, _context())
+    assert result["data"] is None and "last_report_end" not in result["state"]
 
 
 def test_sync_does_nothing_when_yesterday_is_already_imported():
     http = FakeIbkr()
     plugin = IbkrFlex(http=http, today=lambda: date(2026, 11, 16))
-    assert plugin.sync({"state": {"last_report_end": "2026-11-15"}}, _context())["state"]["last_report_end"] == "2026-11-15"
+    result = plugin.sync({"state": {"last_report_end": "2026-11-15"}}, _context())
+    assert result == {"state": {"last_report_end": "2026-11-15"}, "data": None}
     assert http.calls == []
 
 
