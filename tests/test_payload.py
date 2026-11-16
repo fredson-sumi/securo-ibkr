@@ -7,7 +7,7 @@ from tests.fake_report import report_xml
 from tests.test_mapping import _open, _trade_report
 
 from securo_ibkr.flex import parse_report
-from securo_ibkr.payload import INSTITUTION, build, number
+from securo_ibkr.payload import build, number
 
 START, END = date(2025, 11, 16), date(2026, 11, 15)
 
@@ -20,7 +20,8 @@ def test_accounts_carry_cash_and_its_activity():
     data = build(parse_report(report_xml()), START, END, {})
     assert data["contract"] == 1
     usd = _by_id(data["accounts"])["U1234567:USD"]
-    assert (usd["type"], usd["balance"], usd["currency"], usd["institution_name"]) == ("investment", "1000.25", "USD", INSTITUTION)
+    assert (usd["type"], usd["balance"], usd["currency"]) == ("investment", "1000.25", "USD")
+    assert "institution_name" not in usd  # it would replace each account's name in Securo
     assert usd["masked_number"] == "4567" and usd["institution_logo_url"].startswith("https://")
     assert {t["external_id"]: (t["type"], t["amount"]) for t in usd["transactions"]} == {
         "ibkr:U1234567:USD:TX-DIV": ("credit", "12.34"),
