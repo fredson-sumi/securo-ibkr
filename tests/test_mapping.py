@@ -9,12 +9,12 @@ from tests.fake_report import report_xml
 
 from securo_ibkr.flex import ParsedReport, parse_report
 from securo_ibkr.mapping import (
-    Position,
     cash_accounts,
     cash_transactions,
+    holdings,
     positions,
     trade_from_execution,
-    trades_for,
+    trade_from_statement_fund,
 )
 
 
@@ -91,7 +91,15 @@ def test_cash_transactions_currency_is_case_insensitive_and_since_filters(report
 # (the re-fetch half belongs to the fetch tests)
 
 
-def _trade_report() -> ParsedReport:
+def _open(conid: str | None, symbol: str, *, model: str = "", multiplier: str = "1", currency: str = "USD") -> dict:
+    return {
+        "conid": conid or "", "symbol": symbol, "model": model, "currency": currency,
+        "assetCategory": "STK", "description": symbol, "position": "3", "multiplier": multiplier,
+        "markPrice": "220", "positionValue": "660", "costBasisMoney": "500",
+    }
+
+
+def _trade_report(*open_rows: dict) -> ParsedReport:
     return ParsedReport(
         account_id="U1234567",
         account_alias=None,
@@ -111,34 +119,19 @@ def _trade_report() -> ParsedReport:
                 "conid": "100001",
             }
         ],
-        positions=[],
+        positions=list(open_rows) or [_open("100001", "EXMP"), _open("100009", "OTHR")],
     )
 
 
-def _position(external_id: str, ticker: str, conid: str | None = None) -> Position:
-    return Position(
-        external_id=external_id,
-        name=ticker,
-        currency="USD",
-        current_value=Decimal("100"),
-        quantity=None,
-        unit_price=None,
-        purchase_price=None,
-        purchase_date=None,
-        isin=None,
-        ticker=ticker,
-        metadata={"conid": conid} if conid else {},
-    )
+def _by_id(report: ParsedReport) -> dict:
+    return {h.external_id: h for h in holdings(report)}
 
 
 def test_trades_keyed_by_position_from_statement_of_funds():
-    trades = trades_for(
-        _trade_report(), [_position("exmp", "EXMP", "100001"), _position("othr", "OTHR")]
-    )
-
-    assert set(trades) == {"exmp", "othr"}
-    assert trades["othr"] == []
-    [trade] = trades["exmp"]
+    found = _by_id(_trade_report())
+    assert set(found) == {"U1234567:default:100001", "U1234567:default:100009"}
+    assert found["U1234567:default:100009"].trades == []
+    [trade] = found["U1234567:default:100001"].trades
     assert (trade.external_id, trade.kind, trade.quantity, trade.price, trade.fee) == (
         "trade:TR-1",
         "buy",
@@ -147,6 +140,7 @@ def test_trades_keyed_by_position_from_statement_of_funds():
         Decimal("1"),
     )
     assert trade.date == date(2026, 8, 12)
+    assert trade.notes == "IBKR trade TR-1"
 
 
 # --- added: matching rules ---------------------------------------------------
@@ -158,18 +152,26 @@ def test_trades_skip_ambiguous_keys_other_currencies_and_duplicates():
     report.statement_funds.extend(
         [dict(row), {**row, "currency": "EUR", "tradeID": "TR-2"}]
     )
-    trades = trades_for(report, [_position("a", "EXMP", "100001")])
-    assert [t.external_id for t in trades["a"]] == ["trade:TR-1"]
+    trades = _by_id(report)["U1234567:default:100001"].trades
+    assert [t.external_id for t in trades] == ["trade:TR-1"]
 
-    # Same ticker on two positions and no conid: the key maps nowhere.
-    ambiguous = trades_for(_trade_report_by_symbol(), [_position("a", "EXMP"), _position("b", "EXMP")])
-    assert ambiguous == {"a": [], "b": []}
-
-
-def _trade_report_by_symbol() -> ParsedReport:
-    report = _trade_report()
+    # Same ticker in two models and no conid on the row: the key maps nowhere.
+    report = _trade_report(_open("100001", "EXMP", model="A"), _open("100002", "EXMP", model="B"))
     del report.statement_funds[0]["conid"]
-    return report
+    assert all(h.trades == [] for h in holdings(report))
+
+
+def test_statement_of_funds_trades_use_the_position_multiplier():
+    """D13: an option's units and gross need the contract multiplier."""
+    report = _trade_report(_open("100001", "EXMP", multiplier="100"))
+    report.statement_funds[0].update({"tradeQuantity": "-1", "tradePrice": "3.5", "amount": "348.75"})
+    [trade] = holdings(report)[0].trades
+    assert (trade.kind, trade.quantity, trade.price, trade.fee) == (
+        "sell", Decimal("100"), Decimal("3.5"), Decimal("1.25"),
+    )
+    # Without the multiplier, the fee came out as 350 - 348.75 - ... about 99x too high.
+    _, unscaled = trade_from_statement_fund(report.statement_funds[0])
+    assert unscaled.quantity == Decimal("1")
 
 
 def test_trades_section_preferred_over_statement_of_funds():
@@ -187,7 +189,7 @@ def test_trades_section_preferred_over_statement_of_funds():
             "currency": "USD",
         }
     )
-    [trade] = trades_for(report, [_position("a", "EXMP", "100001")])["a"]
+    [trade] = _by_id(report)["U1234567:default:100001"].trades
     assert (trade.external_id, trade.kind, trade.quantity, trade.price, trade.fee) == (
         "trade:EX-1",
         "sell",
@@ -195,6 +197,32 @@ def test_trades_section_preferred_over_statement_of_funds():
         Decimal("3.5"),
         Decimal("1.25"),
     )
+
+
+def test_traded_and_closed_instruments_become_closed_holdings():
+    report = _trade_report()
+    base = {"conid": "200001", "symbol": "GONE", "description": "GONE INC", "assetCategory": "STK",
+            "currency": "USD", "multiplier": "1"}
+    report.trades.extend([
+        {**base, "tradeID": "B1", "tradeDate": "20260301", "quantity": "5", "tradePrice": "10", "buySell": "BUY"},
+        {**base, "tradeID": "S1", "tradeDate": "20260401", "quantity": "-5", "tradePrice": "12", "buySell": "SELL",
+         "fifoPnlRealized": "9", "openCloseIndicator": "C"},
+        {**base, "conid": "300001", "assetCategory": "CASH", "symbol": "EUR.USD", "tradeID": "FX1",
+         "tradeDate": "20260401", "quantity": "100", "tradePrice": "1.1"},
+    ])
+    found = _by_id(report)
+    gone = found["U1234567:default:200001"]
+    assert gone.position is None and gone.units == 0 and gone.name == "GONE INC"
+    assert [t.kind for t in gone.trades] == ["buy", "sell"]
+    assert gone.trades[1].realized == Decimal("9")
+    assert "U1234567:default:300001" not in found  # currency conversions aren't holdings
+
+
+def test_short_positions_and_short_opening_sells_are_flagged(report):
+    found = _by_id(report)
+    assert found["U1234567:default:100002"].is_short
+    assert found["U1234567:Core:100001"].units == Decimal("3")
+    assert found["U1234567:Core:100001"].type == "stock"
 
 
 def test_execution_without_cash_fields_uses_commission_and_taxes():
@@ -219,6 +247,14 @@ def test_execution_without_cash_fields_uses_commission_and_taxes():
         Decimal("10"),
         Decimal("1.5"),
     )
+
+
+def test_execution_without_cash_fields_keeps_the_per_unit_price_for_options():
+    _, trade = trade_from_execution(
+        {"conid": "1", "tradeID": "EX-3", "tradeDate": "2026-08-12", "quantity": "2",
+         "tradePrice": "3.5", "multiplier": "100", "buySell": "BUY", "currency": "USD"}
+    )
+    assert (trade.quantity, trade.price) == (Decimal("200"), Decimal("3.5"))
 
 
 def test_execution_missing_id_is_skipped():
