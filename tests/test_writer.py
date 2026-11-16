@@ -1,4 +1,4 @@
-"""Writing a statement into Securo (Tasks 5-8), against the in-memory fake API."""
+"""Writing a statement into Securo, against the in-memory fake API."""
 from __future__ import annotations
 
 from dataclasses import replace
@@ -45,7 +45,7 @@ def asset(securo: FakeSecuro, external_id: str) -> dict:
     return securo.asset_read(found)
 
 
-# --- Task 5: cash accounts ---------------------------------------------------------
+# --- cash accounts ---------------------------------------------------------
 
 
 def test_first_import_creates_one_account_per_currency_matching_ibkr_cash(securo):
@@ -103,7 +103,7 @@ def test_balance_follows_ibkr_when_later_statements_add_activity(securo):
     assert usd["balance_date"] == "2025-11-15"  # the opening stays before all activity
 
 
-# --- Task 6: cash activity ---------------------------------------------------------
+# --- cash activity ---------------------------------------------------------
 
 
 def test_cash_activity_is_imported_once_without_trades(securo):
@@ -132,7 +132,7 @@ def test_interrupted_import_resumes_without_duplicates(securo):
     assert asset(securo, EXMP)["units"] == 3
 
 
-# --- Task 7: assets ----------------------------------------------------------------
+# --- assets ----------------------------------------------------------------
 
 
 def test_open_positions_become_manual_assets_valued_at_the_statement_date(securo):
@@ -175,7 +175,7 @@ def test_positions_gone_from_the_statement_are_sold_to_zero_and_archived(securo)
     assert again["id"] == exmp["id"] and not again["is_archived"] and again["units"] == 3
 
 
-# --- Task 8: trades ----------------------------------------------------------------
+# --- trades ----------------------------------------------------------------
 
 
 def _with_trades() -> ParsedReport:

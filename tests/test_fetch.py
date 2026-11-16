@@ -1,4 +1,4 @@
-"""The resumable Flex fetch (Task 4). All responses are fakes; no network."""
+"""The resumable Flex fetch. All responses are fakes; no network."""
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone

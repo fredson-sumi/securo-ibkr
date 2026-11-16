@@ -1,4 +1,4 @@
-"""Write a parsed statement into Securo as manual records (Tasks 5-8).
+"""Write a parsed statement into Securo as manual records.
 
 Every step is idempotent, so a sync cut short (time budget, crash, lost
 response) is finished by the next one without duplicates:
@@ -43,7 +43,7 @@ class Summary:
         return {k: v for k, v in self.__dict__.items() if v}
 
 
-# --- cash accounts and activity (Tasks 5-6) ---------------------------------------
+# --- cash accounts and activity ---------------------------------------------
 
 
 def _find_account(api: SecuroApi, cash: CashAccount) -> dict | None:
@@ -142,7 +142,7 @@ def write_cash(api: SecuroApi, report: ParsedReport, state: dict, start: date, s
         reconcile_balance(api, account["id"], cash.balance, opening_date)
 
 
-# --- assets, values and trades (Tasks 7-8) -----------------------------------------
+# --- assets, values and trades -----------------------------------------------
 
 
 def ensure_asset(api: SecuroApi, holding: Holding, entry: dict | None) -> dict:
