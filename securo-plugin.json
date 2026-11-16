@@ -1,0 +1,70 @@
+{
+  "id": "fredson-sumi/securo-ibkr",
+  "name": { "en": "Interactive Brokers", "pt-BR": "Interactive Brokers" },
+  "description": {
+    "en": "Imports cash balances, cash activity, open positions and trades from Interactive Brokers through an Activity Flex Query.",
+    "pt-BR": "Importa saldos em caixa, movimentações, posições abertas e operações da Interactive Brokers por meio de uma Activity Flex Query."
+  },
+  "version": "0.1.0",
+  "repository": "https://github.com/fredson-sumi/securo-ibkr",
+  "license": "MIT",
+  "min_securo_version": "0.19.0",
+  "runtime": { "entrypoint": "securo_ibkr.plugin:plugin" },
+  "network": [
+    {
+      "host": "ndcdyn.interactivebrokers.com",
+      "purpose": {
+        "en": "Asks IBKR's Flex Web Service to generate your Activity Flex statement.",
+        "pt-BR": "Pede ao Flex Web Service da IBKR que gere seu extrato Activity Flex."
+      }
+    },
+    {
+      "host": "gdcdyn.interactivebrokers.com",
+      "purpose": {
+        "en": "Downloads the generated Flex statement from IBKR.",
+        "pt-BR": "Baixa o extrato Flex gerado pela IBKR."
+      }
+    }
+  ],
+  "api_scopes": [
+    {
+      "scope": "accounts:write",
+      "purpose": {
+        "en": "Creates one investment account per cash currency and keeps its balance current.",
+        "pt-BR": "Cria uma conta de investimento por moeda em caixa e mantém o saldo atualizado."
+      }
+    },
+    {
+      "scope": "transactions:write",
+      "purpose": {
+        "en": "Adds deposits, withdrawals, dividends, interest and fees from the statement.",
+        "pt-BR": "Adiciona depósitos, saques, dividendos, juros e taxas do extrato."
+      }
+    },
+    {
+      "scope": "assets:write",
+      "purpose": {
+        "en": "Keeps your open positions, their values and their trades up to date.",
+        "pt-BR": "Mantém suas posições abertas, seus valores e suas operações atualizados."
+      }
+    }
+  ],
+  "contributes": {
+    "integrations": [
+      {
+        "key": "flex",
+        "name": { "en": "IBKR Flex Query", "pt-BR": "IBKR Flex Query" },
+        "description": {
+          "en": "Use a Flex Web Service token and the ID of an Activity Flex Query with XML output.",
+          "pt-BR": "Use um token do Flex Web Service e o ID de uma Activity Flex Query com saída em XML."
+        },
+        "auth": "credentials",
+        "fields": [
+          { "key": "token", "label": { "en": "Flex Web Service token", "pt-BR": "Token do Flex Web Service" }, "secret": true },
+          { "key": "query_id", "label": { "en": "Activity Flex Query ID", "pt-BR": "ID da Activity Flex Query" } }
+        ],
+        "sync_minutes": 60
+      }
+    ]
+  }
+}
