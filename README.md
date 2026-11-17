@@ -22,7 +22,7 @@ The first sync covers the last 365 days. Later syncs pick up from the last state
 2. Under **Flex Web Service Configuration**, enable the service and generate a **token**. If you restrict it by IP, allow your Securo server's public IP.
 3. Create an **Activity Flex Query** with these settings:
    - **Format: XML** (Text/CSV won't work)
-   - **Period**: any. The plugin always asks for its own date range.
+   - **Period: Last 365 Calendar Days.** The plugin sends its own date range with each request, and its first sync asks for that year.
    - Sections and fields:
 
 | Section | Options | Fields to select |
