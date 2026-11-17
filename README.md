@@ -4,6 +4,8 @@ A [Securo](https://github.com/securo-finance/securo) plugin that syncs your Inte
 
 It works like the banks Securo connects to itself: you connect it from **+ Connect Bank**, it shows under **Bank Connections**, and its records carry the synced badge. Securo writes them, matching each one by its IBKR id, so a sync never duplicates anything.
 
+**Version 0.2 needs a Securo with provider plugins** ([securo#1464](https://github.com/securo-finance/securo/pull/1464)). That is on Securo's main branch and not in a release yet; Securo 0.19.0 runs [version 0.1](https://github.com/fredson-sumi/securo-ibkr/tree/v0.1.0), which is what the plugin catalog lists until then.
+
 Each sync brings in:
 
 - **Cash**: one investment account per currency, with IBKR's ending cash as the balance
