@@ -10,7 +10,7 @@ Each sync brings in:
 - **Cash activity**: deposits, withdrawals, dividends, interest, fees and taxes from the Statement of Funds (trades are left out of spending)
 - **Open positions**: one asset per position, valued at IBKR's position value on the statement date
 - **Trades**: the buys and sells behind each position, in the asset's transaction history. What you held before the first statement becomes one opening buy, priced at IBKR's cost basis.
-- **Closed positions**: instruments bought and sold within a statement keep their trades (and realized gain); positions no longer held are archived
+- **Closed positions**: an instrument you sold out keeps its trades and realized gain, and stays listed as sold in Securo. Needs the Trades section.
 
 Short positions (such as written options) get an asset and a value, but no trade history: Securo's ledger doesn't hold short positions.
 

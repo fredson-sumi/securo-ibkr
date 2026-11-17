@@ -14,6 +14,8 @@ it has written the records, so a sync that fails fetches the same days again.
 - `last_report_end`: the last statement day already imported
 - `openings`: the opening buy sent for each instrument held before the
   first statement, sent again with every statement so it stays in place
+- `closed`: the instruments sold out so far, listed again with every
+  statement so Securo keeps showing them as sold
 """
 from __future__ import annotations
 
@@ -85,9 +87,15 @@ class IbkrFlex:
         state = _from_older_version(dict(params.get("state") or {}))
         pending = flex_fetch.Pending.from_state(state.get("flex"))
         window = report_window(state, self._today())
-        if window is None and pending is None:
+        if pending is not None:
+            # The statement IBKR is generating covers the days it was asked
+            # for. Today's window may already end a day later: that day waits
+            # for the next statement instead of being recorded as imported.
+            start, end = pending.from_date, pending.to_date
+        elif window is not None:
+            start, end = window
+        else:
             return {"state": state, "data": None}
-        start, end = window or (pending.from_date, pending.to_date)  # type: ignore[union-attr]
         kwargs = dict(self._fetch_kwargs)
         if self._http is not None:
             kwargs["http"] = self._http

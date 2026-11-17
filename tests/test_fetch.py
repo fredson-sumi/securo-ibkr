@@ -196,6 +196,21 @@ def test_sync_keeps_pending_request_in_state_and_finishes_next_time():
     assert len(data["holdings"]) == 2
 
 
+def test_a_statement_collected_on_a_later_day_counts_for_the_days_it_was_asked_for():
+    now = datetime(2026, 11, 17, 0, 30, tzinfo=timezone.utc)
+    asked = fetch.Pending("REF1", GET, date(2026, 11, 11), date(2026, 11, 15), now - timedelta(hours=1))
+    clock = FakeClock()
+    http = FakeIbkr(READY)
+    plugin = IbkrFlex(http=http, today=lambda: now.date(),
+                      fetch_kwargs={"sleep": clock.sleep, "clock": clock, "now": lambda: now})
+    state = {"last_report_end": "2026-11-10", "openings": {}, "flex": asked.to_state()}
+    result = plugin.sync({"state": state}, _context())
+    # The window now ends on the 16th, but this statement stops at the 15th.
+    assert result["state"]["last_report_end"] == "2026-11-15" and result["data"] is not None
+    assert http.sends == 0
+    assert report_window(result["state"], now.date()) == (date(2026, 11, 16), date(2026, 11, 16))
+
+
 def test_while_ibkr_generates_there_is_no_data():
     polls = fetch.POLL_BUDGET // fetch.POLL_INTERVAL
     clock = FakeClock()
@@ -226,7 +241,7 @@ def test_a_state_from_0_1_starts_over_with_a_full_year():
     plugin = IbkrFlex(http=FakeIbkr(send_ok(), READY), today=lambda: date(2026, 11, 16),
                       fetch_kwargs={"sleep": clock.sleep, "clock": clock})
     result = plugin.sync({"state": old}, _context())
-    assert set(result["state"]) == {"openings", "last_report_end"}
+    assert set(result["state"]) == {"openings", "closed", "last_report_end"}
     assert result["state"]["openings"]  # the year's first statement opened what was held
 
 

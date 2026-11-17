@@ -2,20 +2,22 @@
 
 Securo writes these through its bank sync pipeline, the same code its native
 connections use: it matches every record by `external_id`, so sending a day
-twice changes nothing. The external-id formats are the ones Securo's former
-built-in IBKR provider used (D7).
+twice changes nothing. The external-id formats never change for that reason (D7).
 
 - One investment account per cash currency, its balance IBKR's ending cash,
   with the currency's cash activity (deposits, dividends, interest, fees).
 - One holding per instrument: open positions with their value, and
   instruments traded and closed within the statement with quantity 0, so
-  their realized gains are kept (D16).
+  their realized gains are kept. A closed one is listed again by every later
+  statement, or Securo would archive it (D16).
 - Each holding's executions as trades. When the first statement doesn't
   explain the whole position (it was bought before the statement starts),
-  an opening buy is added the day before, priced at IBKR's cost (D21).
+  an opening buy is added the day before, at what IBKR says those units
+  cost (D21).
 """
 from __future__ import annotations
 
+import re
 from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
@@ -28,6 +30,8 @@ CONTRACT = 1
 INSTITUTION_LOGO = "https://www.google.com/s2/favicons?domain=interactivebrokers.com&sz=128"
 #: The contract takes at most 8 decimals; Securo stores 6.
 _PLACES = Decimal("0.00000001")
+#: What the contract takes as an ISIN; anything else is left out.
+_ISIN = re.compile(r"[A-Z]{2}[A-Z0-9]{9}[0-9]")
 
 
 def number(value: Decimal) -> str:
@@ -40,16 +44,26 @@ def opening_id(holding: Holding) -> str:
 
 
 def build(report: ParsedReport, start: date, end: date, state: dict[str, Any]) -> dict[str, Any]:
-    """The contract payload for one statement. Updates `state["openings"]`."""
+    """The contract payload for one statement. Updates `state["openings"]` and `state["closed"]`."""
     first_statement = not state.get("last_report_end")
     openings: dict[str, Any] = state.setdefault("openings", {})
+    closed: dict[str, Any] = state.setdefault("closed", {})
+    records: dict[str, dict[str, Any]] = {}
+    for holding in holdings(report):
+        record = _holding(holding, start, openings, first_statement)
+        records[holding.external_id] = record
+        if holding.position is None:
+            # Sold out: later statements won't mention it, so remember it (D16).
+            closed[holding.external_id] = {**record, "trades": None}
+        else:
+            closed.pop(holding.external_id, None)  # held again
+    for external_id, record in closed.items():
+        records.setdefault(external_id, record)
     return {
         "contract": CONTRACT,
         "accounts": [_account(report, account.currency, account.external_id, account.name, account.balance)
                      for account in cash_accounts(report)],
-        "holdings": [
-            _holding(holding, start, openings, first_statement) for holding in holdings(report)
-        ],
+        "holdings": list(records.values()),
     }
 
 
@@ -101,8 +115,9 @@ def _holding(holding: Holding, start: date, openings: dict[str, Any], first_stat
             record["purchase_price"] = number(abs(position.purchase_price))
         if position.purchase_date is not None:
             record["purchase_date"] = position.purchase_date.isoformat()
-        if position.isin and len(position.isin) == 12:
-            record["isin"] = position.isin.upper()
+        isin = (position.isin or "").strip().upper()
+        if _ISIN.fullmatch(isin):
+            record["isin"] = isin
     if holding.is_short:
         # Securo's ledger holds no short positions (D17): the value only.
         record["trades"] = None
@@ -154,13 +169,22 @@ def _opening(holding: Holding, start: date) -> dict[str, Any] | None:
         "kind": "buy",
         "date": day.isoformat(),
         "quantity": number(quantity),
-        "price": number(_opening_price(holding)),
+        "price": number(_opening_price(holding, quantity)),
         "fee": "0",
     }
 
 
-def _opening_price(holding: Holding) -> Decimal:
-    """Per unit: IBKR's cost basis for an open position, the cost it matched for a closed one."""
+def _opening_price(holding: Holding, quantity: Decimal) -> Decimal:
+    """Per unit, what the `quantity` held before the statement cost.
+
+    IBKR's cost basis at the end of the statement, without what its trades
+    did to it, is the cost it started with. When a sell doesn't say what it
+    realized, that can't be worked out: the price is then IBKR's average cost
+    now for an open position, or the cost it matched for a closed one.
+    """
+    before = _cost_before(holding)
+    if before is not None and before > 0:
+        return before / quantity
     position = holding.position
     if position is not None:
         units = holding.units
@@ -173,6 +197,30 @@ def _opening_price(holding: Holding) -> Decimal:
             cost = trade.price * trade.quantity - trade.fee - trade.realized
             return max(cost / trade.quantity, Decimal("0"))
     return holding.trades[0].price if holding.trades else Decimal("0")
+
+
+def _cost_before(holding: Holding) -> Decimal | None:
+    """IBKR's cost basis as the statement began, or None when the statement can't tell.
+
+    Each buy added what it cost; each sell took out what its units had cost,
+    which is its proceeds less the gain IBKR realized on it.
+    """
+    position = holding.position
+    if position is None:
+        cost = Decimal("0")
+    elif position.purchase_price is None:
+        return None
+    else:
+        cost = abs(position.purchase_price)
+    for trade in holding.trades:
+        gross = trade.price * trade.quantity
+        if trade.kind == "buy":
+            cost -= gross + trade.fee
+        elif trade.realized is None:
+            return None
+        else:
+            cost += gross - trade.fee - trade.realized
+    return cost
 
 
 def _metadata(holding: Holding) -> dict[str, Any]:

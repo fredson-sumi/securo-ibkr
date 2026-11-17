@@ -1,7 +1,7 @@
 """Parse an IBKR Activity Flex XML statement and map Flex error codes.
 
-Ported from Securo's built-in `app/providers/ibkr.py` (parser half). Standard
-library only. Nothing here talks to the network: the fetch lives elsewhere.
+Standard library only. Nothing here talks to the network: the fetch lives
+elsewhere.
 
 Exceptions:
 - `NeedsAuth`: the person has to fix the token, the query or IBKR settings.

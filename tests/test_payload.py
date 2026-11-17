@@ -90,6 +90,71 @@ def test_instruments_closed_within_the_statement_end_at_zero_with_their_trades()
     assert [t["external_id"] for t in gone["trades"]] == ["trade:B1", "trade:S1"]
 
 
+def test_a_sold_out_instrument_is_listed_by_every_later_statement_until_it_is_held_again():
+    state: dict = {}
+    report = _trade_report()
+    base = {"conid": "200001", "symbol": "GONE", "description": "GONE INC", "assetCategory": "STK",
+            "currency": "USD", "multiplier": "1"}
+    report.trades.extend([
+        {**base, "tradeID": "B1", "tradeDate": "20260301", "quantity": "5", "tradePrice": "10", "buySell": "BUY"},
+        {**base, "tradeID": "S1", "tradeDate": "20260401", "quantity": "-5", "tradePrice": "12", "buySell": "SELL"},
+    ])
+    build(report, START, END, state)
+    state["last_report_end"] = END.isoformat()
+
+    # The next statement doesn't mention it: Securo would archive a holding that isn't listed.
+    day = date(2026, 11, 16)
+    gone = _by_id(build(_trade_report(), day, day, state)["holdings"])["U1234567:default:200001"]
+    assert (gone["name"], gone["type"], gone["quantity"], gone["current_value"]) == ("GONE INC", "stock", "0", "0")
+    assert gone["trades"] is None  # the trades Securo already keeps stay as they are
+
+    held = build(_trade_report(_open("200001", "GONE")), day, day, state)["holdings"]
+    assert [h["quantity"] for h in held if h["external_id"] == "U1234567:default:200001"] == ["3"]
+    assert state["closed"] == {}
+
+
+def _first_statement_trades(position: dict, *executions: dict) -> list[dict]:
+    report = _trade_report({**_open("100001", "EXMP"), **position})
+    report.trades.extend(
+        {"conid": "100001", "currency": "USD", "multiplier": "1", **execution} for execution in executions
+    )
+    return _by_id(build(report, START, END, {})["holdings"])["U1234567:default:100001"]["trades"]
+
+
+def test_the_opening_costs_what_the_units_held_before_the_statement_cost():
+    # 10 held before at 100 each. The statement bought 10 more at 200: 20 held, cost basis 3000.
+    opening = _first_statement_trades(
+        {"position": "20", "costBasisMoney": "3000"},
+        {"tradeID": "B1", "tradeDate": "20260601", "quantity": "10", "tradePrice": "200", "buySell": "BUY"},
+    )[0]
+    assert (opening["quantity"], opening["price"]) == ("10", "100")
+
+    # 10 held before at 100 each. The statement sold 4 at 150, realizing 200: 6 held, cost basis 600.
+    opening = _first_statement_trades(
+        {"position": "6", "costBasisMoney": "600"},
+        {"tradeID": "S1", "tradeDate": "20260601", "quantity": "-4", "tradePrice": "150", "buySell": "SELL",
+         "fifoPnlRealized": "200"},
+    )[0]
+    assert (opening["quantity"], opening["price"]) == ("10", "100")
+
+
+def test_a_sell_that_does_not_say_what_it_realized_leaves_the_average_cost():
+    # 15 held, cost basis 2500, after a buy of 10 and a sell of 5 without its realized gain.
+    opening = _first_statement_trades(
+        {"position": "15", "costBasisMoney": "2500"},
+        {"tradeID": "B1", "tradeDate": "20260601", "quantity": "10", "tradePrice": "200", "buySell": "BUY"},
+        {"tradeID": "S1", "tradeDate": "20260701", "quantity": "-5", "tradePrice": "210", "buySell": "SELL"},
+    )[0]
+    assert (opening["quantity"], opening["price"]) == ("10", "166.66666667")
+
+
+def test_an_isin_the_contract_would_refuse_is_left_out():
+    report = _trade_report({**_open("100001", "EXMP"), "isin": "US-000000001"})
+    assert "isin" not in build(report, START, END, {})["holdings"][0]
+    report = _trade_report({**_open("100001", "EXMP"), "isin": "us0000000001"})
+    assert build(report, START, END, {})["holdings"][0]["isin"] == "US0000000001"
+
+
 def test_numbers_are_plain_strings_with_at_most_eight_decimals():
     from decimal import Decimal
 

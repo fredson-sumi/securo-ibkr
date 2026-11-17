@@ -1,8 +1,8 @@
 """Turn a `ParsedReport` into plain records: cash accounts, cash activity,
 positions and trades.
 
-Pure functions, no I/O and no Securo types. External-id formats match
-Securo's built-in IBKR provider so its records can be adopted later (D7).
+Pure functions, no I/O and no Securo types. Securo matches records by their
+external id, so the formats here never change (D7).
 """
 from __future__ import annotations
 
