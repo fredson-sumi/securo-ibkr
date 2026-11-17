@@ -45,6 +45,8 @@ This version needs a Securo that syncs plugins as banks ([securo-finance/securo#
 2. On **Accounts**, click **+ Connect Bank**, pick **IBKR Flex Query** under "From your plugins", and enter the **Flex Web Service token** and the **Activity Flex Query ID**.
 3. The first sync starts on its own. A large statement can take IBKR a few minutes to generate; if it isn't ready, the next sync collects it. **Sync now** under Bank Connections asks again.
 
+IBKR publishes each day's activity some hours after that day ends, so the plugin asks for a day from 06:00 UTC the next day. If IBKR is later than that, a sync brings in the days before it and reports nothing wrong; the newest day follows a few hours later.
+
 If the token stops working, use **Reconnect** under Bank Connections and enter a new one. Disconnecting removes the accounts and archives the assets, as for any connected bank.
 
 **Coming from 0.1:** 0.1 wrote ordinary records through Securo's API. After the update, the connection syncs into new, synced records, starting again with the last 365 days; the 0.1 records stay as they were, so delete them once you're happy with the synced ones.

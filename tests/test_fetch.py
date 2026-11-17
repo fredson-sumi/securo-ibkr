@@ -211,6 +211,80 @@ def test_a_statement_collected_on_a_later_day_counts_for_the_days_it_was_asked_f
     assert report_window(result["state"], now.date()) == (date(2026, 11, 16), date(2026, 11, 16))
 
 
+NOT_PUBLISHED = flex_error("1003")
+
+
+def _sync(http: FakeIbkr, state: dict, now: datetime) -> dict:
+    clock = FakeClock()
+    plugin = IbkrFlex(http=http, today=lambda: now.date(), now=lambda: now,
+                      fetch_kwargs={"sleep": clock.sleep, "clock": clock, "now": lambda: now})
+    return plugin.sync({"state": state}, _context())
+
+
+def _asked(http: FakeIbkr) -> list[tuple[str, str]]:
+    return [(params["fd"], params["td"]) for url, params in http.calls if url == fetch.SEND_REQUEST_URL]
+
+
+def test_yesterday_is_not_asked_for_before_ibkr_publishes_it():
+    # Just past midnight UTC: yesterday has ended, but IBKR publishes it around 05:00 UTC.
+    night = datetime(2026, 11, 17, 0, 5, tzinfo=timezone.utc)
+    http = FakeIbkr(send_ok(), READY)
+    result = _sync(http, {"last_report_end": "2026-11-12", "openings": {}}, night)
+    assert _asked(http) == [("20261113", "20261115")]
+    assert result["state"]["last_report_end"] == "2026-11-15" and "awaiting" not in result["state"]
+
+    # Securo calls again every hour: until 06:00 there is nothing to ask IBKR for.
+    quiet = FakeIbkr()
+    again = _sync(quiet, result["state"], night.replace(hour=5, minute=55))
+    assert again["data"] is None and quiet.calls == []
+
+    http = FakeIbkr(send_ok(), READY)
+    done = _sync(http, again["state"], night.replace(hour=6, minute=5))
+    assert _asked(http) == [("20261116", "20261116")]
+    assert done["state"]["last_report_end"] == "2026-11-16"
+
+
+def test_a_day_ibkr_publishes_late_waits_while_the_days_before_it_are_imported():
+    now = datetime(2026, 11, 17, 6, 30, tzinfo=timezone.utc)
+    http = FakeIbkr(NOT_PUBLISHED, send_ok(), READY)
+    result = _sync(http, {"last_report_end": "2026-11-12", "openings": {}}, now)
+    assert _asked(http) == [("20261113", "20261116"), ("20261113", "20261115")]
+    assert result["data"] is not None and result["state"]["last_report_end"] == "2026-11-15"
+    assert result["state"]["awaiting"]["day"] == "2026-11-16"
+
+    # An hour later only that day is missing: IBKR isn't asked again yet.
+    quiet = FakeIbkr()
+    again = _sync(quiet, result["state"], now + timedelta(hours=1))
+    assert again["data"] is None and quiet.calls == []
+
+    # Four hours after the refusal it is asked for again, and has arrived.
+    http = FakeIbkr(send_ok(), READY)
+    done = _sync(http, again["state"], now + timedelta(hours=4))
+    assert _asked(http) == [("20261116", "20261116")]
+    assert done["state"]["last_report_end"] == "2026-11-16" and "awaiting" not in done["state"]
+
+
+def test_only_an_unpublished_day_left_is_no_failure_and_no_data():
+    now = datetime(2026, 11, 17, 6, 30, tzinfo=timezone.utc)
+    http = FakeIbkr(NOT_PUBLISHED)
+    result = _sync(http, {"last_report_end": "2026-11-15", "openings": {}}, now)
+    assert result["data"] is None and http.sends == 1
+    assert result["state"]["last_report_end"] == "2026-11-15"
+    assert result["state"]["awaiting"] == {"day": "2026-11-16", "asked_at": now.isoformat()}
+
+
+def test_days_ibkr_refuses_even_without_the_newest_one_are_a_failure():
+    now = datetime(2026, 11, 17, 6, 30, tzinfo=timezone.utc)
+    with pytest.raises(FlexTransient, match="1003"):
+        _sync(FakeIbkr(NOT_PUBLISHED, NOT_PUBLISHED), {"last_report_end": "2026-11-12", "openings": {}}, now)
+
+
+def test_a_blocked_token_says_so_and_never_echoes_it():
+    with pytest.raises(FlexTransient, match="too many failed requests") as raised:
+        run(FakeIbkr(flex_error("1025")))
+    assert TOKEN not in str(raised.value)
+
+
 def test_while_ibkr_generates_there_is_no_data():
     polls = fetch.POLL_BUDGET // fetch.POLL_INTERVAL
     clock = FakeClock()

@@ -20,7 +20,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Any, NoReturn
 from xml.etree import ElementTree
 
-from securo_ibkr.errors import FlexPending, FlexTransient, NeedsAuth
+from securo_ibkr.errors import FlexNotAvailable, FlexPending, FlexTransient, NeedsAuth
 
 MAX_RESPONSE_BYTES = 20 * 1024 * 1024
 
@@ -86,6 +86,14 @@ def raise_for_flex_error(code: str | None, message: str | None = None) -> NoRetu
         raise FlexPending("IBKR Flex rate limit reached. Try again later.")
     if code == "1019":
         raise FlexPending("IBKR Flex is still generating the statement.")
+    if code == "1003":
+        raise FlexNotAvailable("IBKR Flex has no statement for these days yet (error 1003). Try again later.")
+    if code == "1025":
+        # Every refused request counts toward this block, so say what it is.
+        raise FlexTransient(
+            "IBKR is refusing this token for a while after too many failed requests (error 1025). "
+            "Wait a few hours before syncing again."
+        )
     if code in TRANSIENT_ERRORS:
         raise FlexTransient(
             f"IBKR Flex could not generate the statement (error {code}). Try again later."

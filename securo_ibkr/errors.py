@@ -25,3 +25,12 @@ class FlexPending(Exception):
 
 class FlexTransient(Exception):
     """A temporary IBKR or network failure; Securo retries with backoff."""
+
+
+class FlexNotAvailable(FlexTransient):
+    """IBKR has no statement for the days asked (error 1003).
+
+    For a statement that ends yesterday it means IBKR hasn't published that
+    day yet, which `sync` waits out; anywhere else it is a failure like any
+    other.
+    """
