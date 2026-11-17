@@ -26,8 +26,8 @@ from securo_ibkr.flex import ParsedReport
 from securo_ibkr.mapping import Holding, Trade, cash_accounts, cash_transactions, holdings
 
 CONTRACT = 1
-#: The same favicon service Securo uses for its native connections' logos.
-INSTITUTION_LOGO = "https://www.google.com/s2/favicons?domain=interactivebrokers.com&sz=128"
+#: A key of the manifest's `logos`: Securo serves the file from the package (D26).
+INSTITUTION_LOGO = "ibkr"
 #: The contract takes at most 8 decimals; Securo stores 6.
 _PLACES = Decimal("0.00000001")
 #: What the contract takes as an ISIN; anything else is left out.
@@ -78,7 +78,7 @@ def _account(report: ParsedReport, currency: str, external_id: str, name: str, b
         # No institution name: Securo would show it in place of each account's
         # name, and every currency's account would read "Interactive Brokers".
         # The logo alone becomes the connection's.
-        "institution_logo_url": INSTITUTION_LOGO,
+        "institution_logo": INSTITUTION_LOGO,
         "transactions": [
             {
                 "external_id": t.external_id,

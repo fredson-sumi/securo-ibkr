@@ -44,5 +44,6 @@
         "provides": ["accounts", "transactions", "holdings", "trades"]
       }
     ]
-  }
+  },
+  "logos": { "ibkr": "logos/ibkr.png" }
 }

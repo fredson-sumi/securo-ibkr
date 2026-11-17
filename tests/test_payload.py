@@ -1,13 +1,15 @@
 """What `sync` hands Securo: contract 1 records. Fake data only (D3)."""
 from __future__ import annotations
 
+import json
 from datetime import date
+from pathlib import Path
 
 from tests.fake_report import report_xml
 from tests.test_mapping import _open, _trade_report
 
 from securo_ibkr.flex import parse_report
-from securo_ibkr.payload import build, number
+from securo_ibkr.payload import INSTITUTION_LOGO, build, number
 
 START, END = date(2025, 11, 16), date(2026, 11, 15)
 
@@ -22,13 +24,22 @@ def test_accounts_carry_cash_and_its_activity():
     usd = _by_id(data["accounts"])["U1234567:USD"]
     assert (usd["type"], usd["balance"], usd["currency"]) == ("investment", "1000.25", "USD")
     assert "institution_name" not in usd  # it would replace each account's name in Securo
-    assert usd["masked_number"] == "4567" and usd["institution_logo_url"].startswith("https://")
+    assert usd["masked_number"] == "4567" and usd["institution_logo"] == "ibkr"
     assert {t["external_id"]: (t["type"], t["amount"]) for t in usd["transactions"]} == {
         "ibkr:U1234567:USD:TX-DIV": ("credit", "12.34"),
         "ibkr:U1234567:USD:TX-FEE": ("debit", "5"),
     }
     eur = _by_id(data["accounts"])["U1234567:EUR"]
     assert eur["balance"] == "-50.5" and [t["date"] for t in eur["transactions"]] == ["2026-08-09"]
+
+
+def test_the_logo_accounts_name_is_a_small_png_the_package_ships():
+    root = Path(__file__).resolve().parent.parent
+    logos = json.loads((root / "securo-plugin.json").read_text())["logos"]
+    image = (root / logos[INSTITUTION_LOGO]).read_bytes()  # Securo refuses a key the manifest lacks
+    assert image.startswith(b"\x89PNG\r\n\x1a\n") and len(image) <= 256 * 1024
+    data = build(parse_report(report_xml()), START, END, {})
+    assert all("institution_logo_url" not in account for account in data["accounts"])  # never a URL (D26)
 
 
 def test_open_positions_are_holdings_and_shorts_have_no_trades():
