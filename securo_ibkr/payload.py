@@ -87,6 +87,7 @@ def _holding(holding: Holding, start: date, openings: dict[str, Any], first_stat
     record: dict[str, Any] = {
         "external_id": holding.external_id,
         "name": holding.name[:255],
+        "type": holding.type,  # stock, etf, fund, crypto or investment (D24)
         "currency": holding.currency,
         "current_value": number(position.current_value if position is not None else Decimal("0")),
         "quantity": number(units),

@@ -37,6 +37,7 @@ def test_open_positions_are_holdings_and_shorts_have_no_trades():
     long = holdings["U1234567:Core:100001"]
     assert (long["quantity"], long["current_value"], long["purchase_price"], long["isin"]) == ("3", "660", "500", "US0000000001")
     assert long["unit_price"] == "220" and "raw_data" not in long["metadata"]
+    assert long["type"] == "stock"
     short = holdings["U1234567:default:100002"]
     assert short["quantity"] == "-100" and short["trades"] is None
 
