@@ -42,6 +42,12 @@ def test_the_logo_accounts_name_is_a_small_png_the_package_ships():
     assert all("institution_logo_url" not in account for account in data["accounts"])  # never a URL (D26)
 
 
+def test_the_catalog_icon_is_a_png_under_64_kb():
+    root = Path(__file__).resolve().parent.parent
+    icon = (root / "icon.png").read_bytes()  # the catalog looks for it by this name, at the root
+    assert icon.startswith(b"\x89PNG\r\n\x1a\n") and len(icon) <= 64 * 1024  # else it's left out
+
+
 def test_open_positions_are_holdings_and_shorts_have_no_trades():
     data = build(parse_report(report_xml()), START, END, {})
     holdings = _by_id(data["holdings"])
