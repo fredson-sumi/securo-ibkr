@@ -4,7 +4,7 @@ A [Securo](https://github.com/securo-finance/securo) plugin that syncs your Inte
 
 It works like the banks Securo connects to itself: you connect it from **+ Connect Bank**, it shows under **Bank Connections**, and its records carry the synced badge. Securo writes them, matching each one by its IBKR id, so a sync never duplicates anything.
 
-**Version 0.2 needs Securo 0.20.0 or later**, the first release with provider plugins. Securo 0.19.0 can't install it; [version 0.1](https://github.com/fredson-sumi/securo-ibkr/tree/v0.1.0) is the last one that runs there.
+**Versions 0.2 and later need Securo 0.20.0 or later**, the first release with provider plugins. Securo 0.19.0 can't install them; [version 0.1](https://github.com/fredson-sumi/securo-ibkr/tree/v0.1.0) is the last one that runs there.
 
 Each sync brings in:
 
