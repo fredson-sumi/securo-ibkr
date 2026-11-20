@@ -199,7 +199,7 @@ def positions(report: ParsedReport) -> list[Position]:
                 unit_price=mark_price,
                 purchase_price=cost_basis,
                 purchase_date=parse_date(
-                    field_value(raw, "openDateTime"), field="Open Positions / Open Date"
+                    field_value(raw, "openDateTime"), field="Open Positions / Open Date Time"
                 ),
                 isin=field_value(raw, "isin"),
                 ticker=symbol[:32] if symbol else None,
@@ -245,7 +245,7 @@ def trade_from_execution(row: dict[str, str]) -> tuple[str, Trade] | None:
         field_value(row, "tradeDate", "dateTime", "reportDate"), field="Trades / Trade Date"
     )
     quantity = parse_decimal(field_value(row, "quantity"), field="Trades / Quantity")
-    price = parse_decimal(field_value(row, "tradePrice"), field="Trades / Trade Price")
+    price = parse_decimal(field_value(row, "tradePrice"), field="Trades / TradePrice")
     multiplier = parse_decimal(
         field_value(row, "multiplier"), field="Trades / Multiplier"
     ) or Decimal("1")
@@ -264,7 +264,7 @@ def trade_from_execution(row: dict[str, str]) -> tuple[str, Trade] | None:
     else:
         currency = iso_currency(field_value(row, "currency"))
         fee = Decimal("0")
-        commission = parse_decimal(field_value(row, "ibCommission"), field="Trades / Commission")
+        commission = parse_decimal(field_value(row, "ibCommission"), field="Trades / IB Commission")
         if commission and iso_currency(field_value(row, "ibCommissionCurrency")) in {None, currency}:
             fee += abs(commission)
         taxes = parse_decimal(field_value(row, "taxes"), field="Trades / Taxes")
@@ -314,7 +314,7 @@ def trade_from_statement_fund(
     gross = units * price
     amount = statement_amount(row)
     commission = parse_decimal(
-        field_value(row, "tradeCommission"), field="Statement of Funds / Commission"
+        field_value(row, "tradeCommission"), field="Statement of Funds / Trade Commission"
     )
     if commission is not None:
         fee = abs(commission)

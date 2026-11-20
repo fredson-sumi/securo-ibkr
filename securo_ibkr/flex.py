@@ -307,7 +307,7 @@ def parse_report(xml: str | bytes) -> ParsedReport:
     if not account_id or not base_currency:
         _query_error("Account Information must include Account ID and Currency.")
     if not has_field(info, "accountAlias", "acctAlias", "name", "accountName"):
-        _query_error("Account Information must include Account Name or Account Alias.")
+        _query_error("Account Information must include Name or Account Alias.")
 
     cash_report = _first(statement, "CashReport")
     if cash_report is None:
@@ -408,7 +408,7 @@ def parse_report(xml: str | bytes) -> ParsedReport:
             parse_decimal(field_value(data, *keys), field=f"Open Positions / {label}", required=True)
         open_date = field_value(data, "openDateTime")
         if open_date:
-            parse_date(open_date, field="Open Positions / Open Date")
+            parse_date(open_date, field="Open Positions / Open Date Time")
         position_key = (account_id, model, conid)
         if position_key in position_keys:
             _query_error(
