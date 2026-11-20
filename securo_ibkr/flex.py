@@ -259,20 +259,22 @@ _FUNDS_FIELDS = {
     "Symbol": ("symbol",),
     "Balance": ("balance",),
 }
+# Labels are the names IBKR's Flex Query editor shows, so a person can find
+# them: the `position` attribute is the "Quantity" checkbox there.
 _POSITION_FIELDS = {
     "Conid": ("conid",),
     "Symbol": ("symbol",),
     "Description": ("description",),
     "Asset Class": ("assetCategory", "assetClass"),
     "Currency": ("currency",),
-    "Position": ("position", "quantity"),
+    "Quantity": ("position", "quantity"),
     "Multiplier": ("multiplier",),
     "Mark Price": ("markPrice",),
     "Position Value": ("positionValue",),
     "Cost Basis Money": ("costBasisMoney",),
     "ISIN": ("isin",),
     "Side": ("side",),
-    "Open Date/Time": ("openDateTime",),
+    "Open Date Time": ("openDateTime",),
 }
 
 
@@ -397,7 +399,7 @@ def parse_report(xml: str | bytes) -> ParsedReport:
         if not conid or not currency:
             _query_error("Open Positions contains a row without Conid or Currency.")
         for keys, label in (
-            (("position", "quantity"), "Position"),
+            (("position", "quantity"), "Quantity"),
             (("multiplier",), "Multiplier"),
             (("markPrice",), "Mark Price"),
             (("positionValue",), "Position Value"),

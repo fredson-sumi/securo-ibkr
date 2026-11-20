@@ -32,7 +32,7 @@ The first sync covers the last 365 days. Later syncs pick up from the last state
 | Account Information | | Account ID, Currency, Account Alias or Name |
 | Cash Report | Currency breakout | Currency, Ending Cash |
 | Statement of Funds | | Currency, Date, Amount (or Debit and Credit), Activity Description (or Activity Code), Transaction ID, Trade ID, Symbol, Balance |
-| Open Positions | **Summary** level of detail, not lots | Conid, Symbol, Description, Asset Class, Sub Category, Currency, Position, Multiplier, Mark Price, Position Value, Cost Basis Money, ISIN, Side, Open Date/Time |
+| Open Positions | **Summary** level of detail, not lots | Conid, Symbol, Description, Asset Class, Sub Category, Currency, Quantity, Multiplier, Mark Price, Position Value, Cost Basis Money, ISIN, Side, Open Date Time |
 | Trades (recommended) | Execution level | Conid, Symbol, Description, Asset Class, Sub Category, Currency, Trade ID, Trade Date, Quantity, Trade Price, Multiplier, Buy/Sell, Open/Close Indicator, Proceeds, Net Cash, IB Commission, IB Commission Currency, Taxes, Realized P/L (FIFO) |
 
 4. Save the query and note its **Query ID**.

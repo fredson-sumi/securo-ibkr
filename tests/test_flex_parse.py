@@ -68,6 +68,17 @@ def test_query_validation_reports_the_specific_missing_field():
     assert "Trade ID" in str(exc.value)
 
 
+def test_missing_position_amount_is_named_as_ibkr_labels_it():
+    # IBKR's query editor calls the `position` attribute "Quantity"; it has no
+    # "Position" checkbox, so that name sends people looking for nothing.
+    xml = report_xml().replace(' position="3"', "")
+
+    with pytest.raises(NeedsAuth, match=r"Open Positions is missing .*: Quantity\.") as exc:
+        parse_report(xml)
+
+    assert exc.value.code == "flex_query_missing_field"
+
+
 def test_rejects_duplicate_summary_positions():
     duplicate = """
         <OpenPosition accountId="U1234567" model="Core" conid="100001"

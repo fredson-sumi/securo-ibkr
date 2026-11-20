@@ -181,7 +181,7 @@ def positions(report: ParsedReport) -> list[Position]:
         model = field_value(raw, "model") or "default"
         quantity = parse_decimal(
             field_value(raw, "position", "quantity"),
-            field="Open Positions / Position",
+            field="Open Positions / Quantity",
             required=True,
         )
         mark_price = parse_decimal(field_value(raw, "markPrice"), field="Open Positions / Mark Price")
